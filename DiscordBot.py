@@ -1,10 +1,7 @@
-#nodeBot
-#TOKEN = "NzUwNzcxMjYxODc3MjU2Mjg1.X0_YOQ._06jiG8andXDCn045HwVCMUSQhU"
 
-#noobbot
-TOKEN = "NzUxMTQzMzA4NjM3NzY1Njgy.X1EyuA.QhNotqE4RsKV05daOlPLHo7v5Gw"
-#
-
+from discord.config import TOKEN
+from discord.config import API_KEY
+from discord.config import SEARCH_ENGINE_ID
 
 import discord
 from discord.ext import commands
@@ -60,8 +57,6 @@ async def on_message(message):
         #with open("C:\\Users\\ravi.rathore\\Desktop\\discord\\history.json", "w") as fp:
          #   json.dump({str(message.author):SQ}, fp)
 
-        API_KEY = "AIzaSyBL8STSFQVCpHUxSOkC8vhRsYGR0FXcV9Y"  # The API_KEY you acquired
-        SEARCH_ENGINE_ID = "82caebc11378cedc4"  # The search-engine-ID you created
 
         query = SQ
         page = 1
@@ -156,6 +151,7 @@ def computeLPSArray(pat, M, lps):
             else:
                 lps[i] = 0
                 i += 1
+
 
 
 client.run(TOKEN)
