@@ -1,92 +1,64 @@
 
-from discord.config import TOKEN
-from discord.config import API_KEY
-from discord.config import SEARCH_ENGINE_ID
-
+import discord.config as Config
+import discord.NoobBot_Utilities as Utils
 import discord
-from discord.ext import commands
 import requests
+import pyodbc
+
 client = discord.Client()
 
 @client.event
 async def on_message(message):
-
+    #base case
     if message.author==client.user:
-        print('done')
         return
-    if (message.content=="Hey" or message.content=="hey"):
 
+
+    if (message.content=="Hey" or message.content=="hey"):
         await message.channel.send("hi")
 
     elif message.content.startswith('!help'):
-        embed = discord.Embed( colour=discord.Colour.green())
-        embed.set_author(name='Help : list of commands available')
-        embed.add_field(name='!google [Search Query]', value='Returns top 5 Google Search Results of given Query', inline=False)
-        embed.add_field(name='!recent [Query]', value='Returns recent searched query using !google.', inline=False)
+        #get all valid commands for this bot
+        embed = Utils.GetAllValidCommands()
         await message.channel.send(embed=embed)
-    elif message.content.startswith('!recent '):
-        with open("C:\\Users\\ravi.rathore\\Desktop\\discord\\hist.txt") as f:
-            content = f.readlines()
-        content = [x.strip() for x in content]
-        setContent=set(content)
-        setContent1=list(setContent)
-        print(setContent1)
-        SQ = message.content.replace('!recent ', '')
-        embed = discord.Embed(colour=discord.Colour.green())
-        embed.set_author(name='Recent Search Results')
-        c=0
-        for i in range(len(setContent1)):
-            if(KMPSearch(SQ,setContent1[i])):
-                embed.add_field(name='' + str(c + 1) + ' Result', value=setContent1[i], inline=False)
-                c=c+1
-        if(c==0):
-            embed.add_field(name='No recent history found ', value=SQ, inline=False)
 
+    elif message.content.startswith('!recent '):
+        #get substring to search in database
+        Substr = Utils.GetQuerySubString(message.content,1)
+        # create Sql server connection hosted on google cloud
+        conn=Config.CreateMSSQLConnection( Config.GetConnectionString() )
+        #get all matched results in a list using substring search algorithms
+        Hist=Utils.GetSearchHistory(conn)
+        #print the searched data into a format
+        embed=Utils.PrintResults(Hist,Substr)
         await message.channel.send(embed=embed)
 
 
     elif message.content.startswith('!google '):
-        SQ=message.content.replace('!google ','')
-        dd={}
-        dd[message.author]=SQ
-        file1 = open("C:\\Users\\ravi.rathore\\Desktop\\discord\\hist.txt", "a")
-        kk=[str(SQ) + "\n"]
-        file1.writelines(kk)
-        file1.close()
+        #get substring to search on google
+        Substr = Utils.GetQuerySubString(message.content,2)
 
-        #with open("C:\\Users\\ravi.rathore\\Desktop\\discord\\history.json", "w") as fp:
-         #   json.dump({str(message.author):SQ}, fp)
+        #storing query: create Sql server connection hosted on google cloud
+        conn = Config.CreateMSSQLConnection(Config.GetConnectionString())
+        #save Query in database using stored procedure
+        Utils.SaveQueryInDataBase(conn,Substr)
 
+        #search Engine using custom google  search API
+        #step 1 : set starting page of search
+        start = 1
 
-        query = SQ
-        page = 1
-        start = (page - 1) * 5 + 1
-
-        url = f"https://www.googleapis.com/customsearch/v1?key={API_KEY}&cx={SEARCH_ENGINE_ID}&q={query}&start={start}"
+        #Step 2: call Google coustum search API
+        url = f"https://www.googleapis.com/customsearch/v1?key={Config.API_KEY}&cx={Config.SEARCH_ENGINE_ID}&q={Substr}&start={start}"
         data = requests.get(url).json()
         search_items = data.get("items")
-        ll = []
-        # iterate over 10 results found
-        for i, search_item in enumerate(search_items, start=1):
-            if (i > 5): break
-            # get the page title
-            title = search_item.get("title")
-            # page snippet
-            snippet = search_item.get("snippet")
-            # alternatively, you can get the HTML snippet (bolded keywords)
-            html_snippet = search_item.get("htmlSnippet")
-            # extract the page url
-            link = search_item.get("link")
-            # print the results
-            ll.append(link)
+        
+        #Step 3: Extract top 5 links from the output data of API
+        Links=Utils.GetTop5Links(search_items)
+        #print data found
 
-        embed = discord.Embed(colour=discord.Colour.green())
-        embed.set_author(name='Top 5 google Search Results')
-        for i in range(len(ll)):
-            embed.add_field(name='' + str(i+1) + 'Result', value=ll[i], inline=False)
-
-
+        embed=Utils.PrintResult(Links)
         await message.channel.send(embed=embed)
+
     else:
         embed = discord.Embed(colour=discord.Colour.green())
         embed.set_author(name='Invalid Query! here is the list of commands available')
@@ -96,63 +68,6 @@ async def on_message(message):
         await message.channel.send(embed=embed)
 
 
-def KMPSearch(pat, txt):
-    M = len(pat)
-    N = len(txt)
 
-    # create lps[] that will hold the longest prefix suffix
-    # values for pattern
-    lps = [0] * M
-    j = 0  # index for pat[]
-
-    # Preprocess the pattern (calculate lps[] array)
-    computeLPSArray(pat, M, lps)
-
-    i = 0  # index for txt[]
-    while i < N:
-        if pat[j] == txt[i]:
-            i += 1
-            j += 1
-
-        if j == M:
-            return 1
-            j = lps[j - 1]
-
-            # mismatch after j matches
-        elif i < N and pat[j] != txt[i]:
-            # Do not match lps[0..lps[j-1]] characters,
-            # they will match anyway
-            if j != 0:
-                j = lps[j - 1]
-            else:
-                i += 1
-
-
-def computeLPSArray(pat, M, lps):
-    len = 0  # length of the previous longest prefix suffix
-
-    lps[0]  # lps[0] is always 0
-    i = 1
-
-    # the loop calculates lps[i] for i = 1 to M-1
-    while i < M:
-        if pat[i] == pat[len]:
-            len += 1
-            lps[i] = len
-            i += 1
-        else:
-            # This is tricky. Consider the example.
-            # AAACAAAA and i = 7. The idea is similar
-            # to search step.
-            if len != 0:
-                len = lps[len - 1]
-
-                # Also, note that we do not increment i here
-            else:
-                lps[i] = 0
-                i += 1
-
-
-
-client.run(TOKEN)
+client.run(Config.TOKEN)
 
